@@ -1,1 +1,504 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>الخريطة الذهنية — تحديد فرع للطباعة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{--ink:#0f172a;--muted:#64748b;--line:#e8edf3;}
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:24px 16px 60px;min-height:100vh;
+    font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;color:var(--ink);
+    background:
+      radial-gradient(1200px 600px at 100% -10%,#e0f2fe 0,transparent 60%),
+      radial-gradient(900px 500px at 0 0,#ede9fe 0,transparent 55%),#f1f5f9;
+  }
+  .wrap{max-width:1300px;margin:0 auto}
+  .top{text-align:center;margin-bottom:14px}
+  .top h1{margin:0 0 6px;font-size:clamp(22px,3vw,32px);font-weight:800;letter-spacing:-.4px}
+  .top p{margin:0;color:var(--muted);font-size:14.5px}
 
+  .save-bar{
+    display:flex;justify-content:center;align-items:center;gap:10px;
+    margin:6px 0 4px;font-size:12.5px;font-weight:700;color:#047857;
+  }
+  .save-dot{
+    width:8px;height:8px;border-radius:50%;background:#10b981;
+    box-shadow:0 0 0 4px rgba(16,185,129,.15);
+    animation:pulse 2s ease-in-out infinite;
+  }
+  .save-dot.saving{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.15)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+  .toolbar{
+    display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;
+    background:#fff;border:1px solid var(--line);border-radius:18px;
+    padding:14px 18px;margin:14px 0;box-shadow:0 10px 30px -24px rgba(15,23,42,.4);
+  }
+  .toolbar .grp{display:flex;align-items:center;gap:8px}
+  .toolbar label{font-weight:800;color:var(--muted);font-size:14px}
+  .toolbar select{
+    font-family:inherit;font-size:14px;font-weight:700;padding:9px 14px;
+    border-radius:11px;border:1px solid var(--line);background:#f8fafc;color:var(--ink);
+    cursor:pointer;transition:border-color .18s,background .18s;
+  }
+  .toolbar select:focus{outline:none;border-color:#2563eb;background:#fff}
+  .sep{width:1px;height:26px;background:var(--line)}
+
+  .chk{
+    display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    font-weight:700;font-size:14px;color:#334155;user-select:none;
+  }
+  .chk input{width:17px;height:17px;accent-color:#0f172a;cursor:pointer;margin:0}
+  .chk .cnt{
+    background:#eef2f7;color:#64748b;font-size:12px;padding:1px 8px;
+    border-radius:999px;font-weight:700;min-width:22px;text-align:center;
+  }
+  .chk .cnt.has{background:#fef3c7;color:#b45309}
+
+  /* ===== selection indicator ===== */
+  .sel-info{
+    display:none;
+    align-items:center;gap:8px;
+    background:#ecfdf5;border:1px solid #a7f3d0;border-radius:11px;
+    padding:6px 10px;
+  }
+  .sel-info.on{display:inline-flex}
+  .sel-badge{
+    font-size:12.5px;font-weight:800;color:#065f46;
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .sel-badge .num{
+    background:#10b981;color:#fff;padding:1px 7px;
+    border-radius:999px;font-weight:800;
+  }
+  .btn-clear-sel{
+    font-family:inherit;font-size:11.5px;font-weight:800;
+    background:#ffffff;color:#dc2626;border:1px solid #fecaca;
+    border-radius:7px;padding:4px 10px;cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-clear-sel:hover{background:#fef2f2}
+
+  .btn{
+    font-family:inherit;font-size:14px;font-weight:800;
+    padding:10px 18px;border:none;border-radius:11px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;
+    transition:background .18s,transform .18s;
+  }
+  .btn:disabled{opacity:.6;cursor:wait}
+  .btn-export{background:#059669;color:#fff}
+  .btn-export:hover:not(:disabled){background:#047857;transform:translateY(-1px)}
+  .btn-print{background:#0f172a;color:#fff}
+  .btn-print:hover:not(:disabled){background:#1e293b;transform:translateY(-1px)}
+  .btn-danger{background:#fff;color:#dc2626;border:1px solid #fecaca}
+  .btn-danger:hover:not(:disabled){background:#fef2f2;transform:translateY(-1px)}
+
+  .view-toggle{
+    display:inline-flex;gap:4px;background:#f1f5f9;padding:3px;border-radius:12px;
+  }
+  .vt-btn{
+    font-family:inherit;font-size:13px;font-weight:700;
+    padding:8px 14px;border:none;background:transparent;color:#64748b;
+    cursor:pointer;border-radius:9px;
+    display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s,color .15s;
+  }
+  .vt-btn:hover{color:var(--ink)}
+  .vt-btn.active{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+  .add-form{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;
+    background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;
+    margin:0 0 18px;box-shadow:0 10px 30px -24px rgba(15,23,42,.4);
+    position:relative;
+  }
+  .form-hint{
+    grid-column:1/-1; margin:0 0 4px; font-size:12.5px;
+    color:#64748b; font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+  .form-hint b{color:#2563eb;font-weight:800}
+
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:12px;font-weight:700;color:var(--muted)}
+  .ac-wrap{position:relative}
+  .field input{
+    width:100%;
+    font-family:inherit;font-size:14px;padding:9px 11px;
+    border:1px solid var(--line);border-radius:11px;background:#f8fafc;color:var(--ink);
+    transition:border-color .18s,background .18s;
+  }
+  .field input:focus{outline:none;border-color:#2563eb;background:#fff}
+  .field input[type="date"]{font-size:13px}
+
+  .ac-list{
+    position:absolute;top:calc(100% + 4px);left:0;right:0;
+    background:#fff;border:1px solid var(--line);border-radius:12px;
+    max-height:230px;overflow-y:auto;
+    box-shadow:0 18px 40px -20px rgba(15,23,42,.35), 0 4px 12px -4px rgba(15,23,42,.08);
+    list-style:none;margin:0;padding:5px;
+    z-index:60;display:none;
+  }
+  .ac-list.open{display:block}
+  .ac-item{
+    padding:8px 11px;border-radius:8px;cursor:pointer;
+    font-size:13.5px;font-weight:600;color:#1e293b;
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    transition:background .12s;
+  }
+  .ac-item:hover,.ac-item.active{background:#eef2ff;color:#1e3a8a}
+  .ac-item .ac-count{
+    font-size:11px;font-weight:700;color:#94a3b8;
+    background:#f1f5f9;border-radius:999px;padding:1px 7px;
+  }
+  .ac-item.active .ac-count{background:#c7d2fe;color:#1e3a8a}
+
+  .add-btn{
+    align-self:end;font-family:inherit;font-size:15px;font-weight:800;
+    padding:10px 22px;border:none;border-radius:11px;cursor:pointer;
+    background:#0f172a;color:#fff;transition:transform .18s,background .18s;
+  }
+  .add-btn:hover{background:#1e293b;transform:translateY(-1px)}
+
+  .map-wrap{
+    background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 40px -28px rgba(15,23,42,.5);
+    overflow:auto;max-height:80vh;padding:10px;
+  }
+  .map-wrap.hidden{display:none}
+  .map-wrap svg{display:block}
+  svg text{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif}
+
+  /* node hover & cursor */
+  svg .node-a, svg .node-b{cursor:pointer}
+  svg .node-a:hover, svg .node-b:hover{opacity:0.88}
+
+  .table-wrap{
+    display:none;
+    background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 40px -28px rgba(15,23,42,.5);
+    overflow:auto;max-height:80vh;
+  }
+  .table-wrap.active{display:block}
+  .table-stats{
+    padding:14px 18px 10px;
+    font-size:13px;font-weight:600;color:var(--muted);
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;flex-wrap:wrap;gap:6px;
+  }
+  .table-stats b{color:var(--ink);font-weight:800}
+  .table-stats .hint{
+    margin-inline-start:auto;color:#2563eb;font-weight:700;font-size:12.5px;
+  }
+  .data-table{width:100%;border-collapse:collapse;font-size:14px;}
+  .data-table thead th{
+    position:sticky;top:0;background:#f8fafc;
+    padding:8px 10px;border-bottom:2px solid var(--line);
+    text-align:center;font-weight:800;color:var(--ink);
+    font-size:13px;z-index:5;
+  }
+  .data-table thead th.th-num{width:56px;color:var(--muted)}
+  .data-table thead th.th-date{width:135px;font-size:12px}
+  .data-table thead th.th-date.created{color:#0891b2}
+  .data-table thead th.th-date.completed{color:#059669}
+  .data-table thead th.th-duration{width:110px;color:#f59e0b;font-size:12px}
+  .data-table thead th.th-actions{width:110px;color:var(--muted)}
+
+  .col-name-input{
+    width:100%;background:transparent;
+    border:1px dashed transparent;border-radius:7px;
+    padding:5px 8px;text-align:center;
+    font:inherit;font-weight:800;color:var(--ink);font-size:13px;
+    cursor:text;transition:border-color .15s,background .15s;
+  }
+  .col-name-input:hover{border-color:#cbd5e1;background:#fff}
+  .col-name-input:focus{outline:none;border-color:#2563eb;border-style:solid;background:#fff}
+
+  .data-table tbody td{
+    padding:6px 6px;border-bottom:1px solid var(--line);
+    text-align:center;color:var(--ink);
+  }
+  .data-table tbody tr:last-child td{border-bottom:none}
+  .data-table tbody tr:hover{background:#f8fafc}
+  .data-table .td-num{color:var(--muted);font-weight:700;font-size:13px}
+  .data-table .td-actions{white-space:nowrap;width:110px}
+  .data-table .td-duration{padding:4px;}
+
+  .cell-input{
+    width:100%;background:transparent;
+    border:1px solid transparent;border-radius:7px;
+    padding:5px 7px;text-align:center;
+    font:inherit;font-weight:600;color:var(--ink);font-size:13.5px;
+    transition:border-color .15s,background .15s;
+  }
+  .cell-input:hover{border-color:#e2e8f0;background:#fff}
+  .cell-input:focus{outline:none;border-color:#2563eb;background:#fff}
+  .cell-input.date-input{font-size:12px;font-weight:700}
+  .cell-input.date-input.created{color:#0891b2}
+  .cell-input.date-input.completed{color:#059669}
+
+  .dur-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    font-size:11.5px;font-weight:800;
+    padding:4px 9px;border-radius:999px;white-space:nowrap;
+  }
+  .dur-badge.done{background:#dcfce7;color:#166534;}
+  .dur-badge.pending{background:#fef3c7;color:#92400e;}
+  .dur-badge.empty{color:#cbd5e1;font-weight:700;background:transparent;}
+
+  .row-btn{
+    width:30px;height:30px;border-radius:8px;
+    border:1px solid var(--line);background:#fff;color:#64748b;
+    cursor:pointer;font-size:14px;line-height:1;margin:0 2px;
+    display:inline-flex;align-items:center;justify-content:center;
+    transition:background .15s,border-color .15s,color .15s;
+  }
+  .row-btn:hover{background:#f1f5f9;color:var(--ink)}
+  .row-btn.del:hover{background:#fee2e2;border-color:#fecaca;color:#dc2626}
+  .row-btn.arch:hover{background:#dbeafe;border-color:#bfdbfe;color:#1e40af}
+
+  .archived-row{opacity:.55}
+  .archived-row .cell-input{text-decoration:line-through}
+  .archived-row .td-num{color:#cbd5e1}
+
+  .empty-row{
+    padding:50px 20px !important;color:var(--muted);
+    text-align:center;font-size:15px;
+  }
+
+  .log-wrap{
+    display:none;
+    background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:0 18px 40px -28px rgba(15,23,42,.5);
+    overflow:hidden;max-height:80vh;
+    flex-direction:column;
+  }
+  .log-wrap.active{display:flex}
+
+  .log-stats{
+    display:flex;align-items:center;gap:10px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;font-weight:600;color:var(--muted);
+  }
+  .log-stats b{color:var(--ink);font-weight:800}
+  .log-actions{margin-inline-start:auto;display:flex;gap:6px}
+  .btn-small{
+    font-family:inherit;font-size:12px;font-weight:700;
+    padding:6px 12px;border:none;border-radius:8px;cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-small.btn-danger{background:#fff;color:#dc2626;border:1px solid #fecaca}
+  .btn-small.btn-danger:hover{background:#fef2f2}
+
+  .log-filters{
+    display:flex;flex-wrap:wrap;gap:8px;
+    padding:10px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .log-chip{
+    --lc:#0f172a;
+    font-family:inherit;font-size:12px;font-weight:700;
+    padding:5px 12px;border-radius:999px;cursor:pointer;
+    background:#f8fafc;color:#475569;border:1px solid var(--line);
+    transition:all .15s;
+  }
+  .log-chip:hover{border-color:var(--lc);color:var(--lc)}
+  .log-chip.active{background:var(--lc);color:#fff;border-color:transparent}
+  .log-chip span{
+    background:rgba(148,163,184,.2);
+    border-radius:999px;padding:0 7px;
+    margin-inline-start:3px;font-size:11px;
+  }
+  .log-chip.active span{background:rgba(255,255,255,.25)}
+
+  .log-list{overflow-y:auto;flex:1;padding:6px 18px 18px;}
+  .log-date-header{
+    font-size:11.5px;font-weight:800;color:var(--muted);
+    padding:14px 0 8px;
+    position:sticky;top:0;background:#fff;z-index:2;
+  }
+  .log-item{
+    --lc:#64748b;
+    display:flex;align-items:flex-start;gap:10px;
+    padding:10px 12px;border-radius:10px;
+    border-inline-start:3px solid var(--lc);
+    background:#f8fafc;
+    margin-bottom:6px;font-size:13px;
+  }
+  .log-icon{font-size:18px;line-height:1;margin-top:1px}
+  .log-body{flex:1;min-width:0}
+  .log-action{font-size:11.5px;font-weight:800;color:var(--lc);margin-bottom:2px;}
+  .log-detail{color:var(--ink);line-height:1.5;word-wrap:break-word}
+  .log-detail .old{color:#dc2626;text-decoration:line-through;opacity:.7}
+  .log-detail .new{color:#059669;font-weight:700}
+  .log-detail .created{color:#0891b2;font-weight:700}
+  .log-detail .completed{color:#059669;font-weight:700}
+  .log-detail .duration{color:#f59e0b;font-weight:800}
+  .log-time{font-size:11px;color:var(--muted);font-weight:700;white-space:nowrap;}
+  .log-empty{padding:60px 20px;text-align:center;color:var(--muted);font-size:14px}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:#0f172a;color:#fff;padding:12px 24px;border-radius:12px;
+    font-weight:700;font-size:14px;z-index:1000;
+    box-shadow:0 10px 30px rgba(0,0,0,.2);
+    animation:toastIn .25s ease;
+  }
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)}}
+
+  .foot{margin-top:22px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9}
+
+  @media print{
+    body{background:#fff;padding:0}
+    .toolbar,.add-form,.top,.foot,.toast,.save-bar{display:none !important}
+    .map-wrap,.table-wrap,.log-wrap{max-height:none;overflow:visible;box-shadow:none;border:none;padding:0;border-radius:0}
+    .map-wrap.hidden,.table-wrap:not(.active),.log-wrap:not(.active){display:none !important}
+    @page{size:A4 landscape;margin:8mm}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <h1>الخريطة الذهنية — تحديد فرع للطباعة</h1>
+    <p>انقر على أي فرع في الخريطة لتحديده &nbsp;·&nbsp; الطباعة والتصدير سيحترمان التحديد.</p>
+  </div>
+
+  <div class="save-bar">
+    <span class="save-dot" id="saveDot"></span>
+    <span id="saveLabel">محفوظ محلياً على هذا الجهاز</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="view-toggle">
+      <button class="vt-btn active" data-view="map" type="button">🗺️ خريطة</button>
+      <button class="vt-btn" data-view="table" type="button">📋 جدول</button>
+      <button class="vt-btn" data-view="log" type="button">📜 سجل التغييرات</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label for="colA">الفلتر الأول:</label>
+      <select id="colA">
+        <option value="section">القسم</option>
+        <option value="place">المكان</option>
+        <option value="spec">الاختصاص</option>
+        <option value="note">الملاحظة</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <div class="grp">
+      <label for="colB">الفلتر الثاني:</label>
+      <select id="colB">
+        <option value="spec">الاختصاص</option>
+        <option value="section">القسم</option>
+        <option value="place">المكان</option>
+        <option value="note">الملاحظة</option>
+      </select>
+    </div>
+    <div class="sep"></div>
+    <label class="chk">
+      <input type="checkbox" id="showArchived" checked>
+      <span>إظهار المؤرشفة</span>
+      <span class="cnt" id="archCount">0</span>
+    </label>
+    <div class="sep"></div>
+    <div class="sel-info" id="selInfo">
+      <span class="sel-badge">🔹 <span class="num" id="selBranches">0</span> فرع · <span class="num" id="selRecords">0</span> ملاحظة</span>
+      <button class="btn-clear-sel" id="clearSelBtn" type="button">إلغاء التحديد</button>
+    </div>
+    <div class="sep" id="selSep" style="display:none;"></div>
+    <button class="btn btn-export" id="exportBtn" type="button">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <polyline points="9 15 12 12 15 15"/>
+      </svg>
+      تصدير PDF
+    </button>
+    <button class="btn btn-print" id="printBtn" type="button">
+      🖨️ طباعة
+    </button>
+    <button class="btn btn-danger" id="clearBtn" type="button" title="مسح كل البيانات المحفوظة">مسح البيانات</button>
+  </div>
+
+  <form id="addForm" class="add-form" autocomplete="off">
+    <p class="form-hint">💡 تاريخ الإدخال تلقائي &nbsp;·&nbsp; <b>انقر على أي فرع في الخريطة لتحديده</b> قبل الطباعة/التصدير &nbsp;·&nbsp; بدون تحديد = تصدير الكل.</p>
+
+    <div class="field">
+      <label for="noteInput" id="labelNote">الملاحظة</label>
+      <div class="ac-wrap">
+        <input id="noteInput" required placeholder="تغير جهاز إنارة">
+        <ul class="ac-list" id="noteAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="sectionInput" id="labelSection">القسم</label>
+      <div class="ac-wrap">
+        <input id="sectionInput" required placeholder="طابق 6">
+        <ul class="ac-list" id="sectionAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="placeInput" id="labelPlace">المكان</label>
+      <div class="ac-wrap">
+        <input id="placeInput" required placeholder="غرفة 5">
+        <ul class="ac-list" id="placeAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="specInput" id="labelSpec">الاختصاص</label>
+      <div class="ac-wrap">
+        <input id="specInput" required placeholder="كهرباء">
+        <ul class="ac-list" id="specAC"></ul>
+      </div>
+    </div>
+    <div class="field">
+      <label for="completedInput">✓ تاريخ الإنجاز (اختياري)</label>
+      <input type="date" id="completedInput">
+    </div>
+    <button type="submit" class="add-btn">إضافة</button>
+  </form>
+
+  <div class="map-wrap" id="mapWrap"></div>
+  <div class="table-wrap" id="tableWrap"></div>
+  <div class="log-wrap" id="logWrap"></div>
+
+  <p class="foot">
+    🔹 تحديد = انقر على فرع &nbsp;·&nbsp; ☑ أرشفة &nbsp;·&nbsp; × حذف &nbsp;·&nbsp; بدون تحديد تُطبع/تُصدَّر الخريطة كاملة.
+  </p>
+</div>
+
+<script>
+/* ============================================================
+   0) مساعدات التاريخ والمدة
+   ============================================================ */
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function daysAgoStr(n){
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function durationDays(createdAt, completedAt){
+  if(!createdAt || !completedAt) return null;
+  const c = new Date(String(createdAt) + 'T00:00:00');
+  const a = new Date(String(completedAt) + 'T00:00:00');
+  if(isNaN(c.getTime()) || isNaN(a.getTime())) return null;
+  const diff = Math.round((a - c) / 86400000);
+  if(diff < 0) return null;
+  return diff;
+}
+function formatDuration(days){
+  if(days === null || days === undefined) return '';
+  if(days ===
